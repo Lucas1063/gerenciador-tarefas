@@ -1,0 +1,137 @@
+:root {
+  --papel: #edf1ee;
+  --folha: #fbfcfb;
+  --tinta: #1f3a5f;
+  --pauta: #c9d4cf;
+  --feito: #3e7c59;
+  --alerta: #a23b2a;
+  --suave: #5d6f7f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 2rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.resumo { margin: 0.5rem 0 2rem; color: var(--suave); }
+
+form { display: flex; gap: 0.5rem; }
+
+input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+  font: inherit;
+  color: inherit;
+  background: var(--folha);
+  border: 2px solid var(--pauta);
+  border-radius: 6px;
+}
+
+input[type="text"]:focus { outline: none; border-color: var(--tinta); }
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+form button {
+  padding: 0.75rem 1.1rem;
+  font-weight: 700;
+  color: var(--folha);
+  background: var(--tinta);
+  border: 2px solid var(--tinta);
+}
+
+button:focus-visible, input[type="checkbox"]:focus-visible {
+  outline: 3px solid var(--feito);
+  outline-offset: 2px;
+}
+
+.erro { margin: 0.5rem 0 0; color: var(--alerta); }
+
+ul {
+  list-style: none;
+  margin: 2rem 0 0;
+  padding: 0;
+  background: var(--folha);
+  border-left: 4px solid var(--tinta);
+}
+
+li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--pauta);
+}
+
+li:last-child { border-bottom: none; }
+
+li input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--feito);
+  flex-shrink: 0;
+}
+
+li label { flex: 1; overflow-wrap: anywhere; }
+
+li.feita label { color: var(--suave); text-decoration: line-through; text-decoration-color: var(--feito); }
+
+.excluir {
+  padding: 0.3rem 0.6rem;
+  color: var(--alerta);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.excluir:hover { border-color: var(--alerta); }
+
+.vazio { margin-top: 2rem; color: var(--suave); }
+
+footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  max-width: 40rem;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 1.5rem;
+  font-size: 0.875rem;
+  color: var(--suave);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

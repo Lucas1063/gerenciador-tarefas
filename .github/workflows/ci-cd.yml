@@ -1,0 +1,160 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  qualidade:
+    name: 1. Testes e segurança do código
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # o Sonar precisa do histórico completo
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testes com cobertura (critérios de aceitação da spec)
+        run: npm test
+
+      - name: Auditoria de dependências (npm audit)
+        run: npm audit --audit-level=high
+
+      - name: SonarQube Cloud (SAST) + Quality Gate
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  imagem:
+    name: 2. Build da imagem e scan Trivy
+    needs: qualidade
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Definir nome da imagem e versão
+        id: meta
+        run: |
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "version=v1.0.${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build da imagem Docker
+        run: docker build -t "$IMG:$VER" .
+        env:
+          IMG: ${{ steps.meta.outputs.image }}
+          VER: ${{ steps.meta.outputs.version }}
+
+      - name: Scan de vulnerabilidades da imagem (Trivy)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --severity CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
+            "$IMG:$VER"
+        env:
+          IMG: ${{ steps.meta.outputs.image }}
+          VER: ${{ steps.meta.outputs.version }}
+
+      - name: Publicar imagem no GitHub Container Registry
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "$IMG:$VER" "$IMG:latest"
+          docker push "$IMG:$VER"
+          docker push "$IMG:latest"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMG: ${{ steps.meta.outputs.image }}
+          VER: ${{ steps.meta.outputs.version }}
+
+  deploy:
+    name: 3. Deploy na AWS EC2 e publicação
+    needs: imagem
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # para criar a Release
+      packages: read
+    environment:
+      name: producao
+      url: http://${{ vars.EC2_HOST }}
+    env:
+      IMAGE: ${{ needs.imagem.outputs.image }}
+      VERSION: ${{ needs.imagem.outputs.version }}
+      HOST: ${{ vars.EC2_HOST }}
+    steps:
+      - name: Atualizar container na EC2 via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ vars.EC2_HOST }}
+          username: ${{ vars.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: IMAGE,VERSION,GHCR_USER,GHCR_TOKEN
+          script: |
+            set -e
+            echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            sudo docker pull "$IMAGE:$VERSION"
+            sudo docker rm -f app 2>/dev/null || true
+            sudo docker run -d --name app --restart unless-stopped \
+              -p 80:3000 -e APP_VERSION="$VERSION" "$IMAGE:$VERSION"
+            sudo docker logout ghcr.io
+            sudo docker image prune -af || true
+
+      - name: Smoke test na URL pública
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS "http://$HOST/api/version" | grep -q "$VERSION"; then
+              echo "Aplicação no ar com a versão $VERSION"
+              exit 0
+            fi
+            echo "Tentativa $i: aguardando..."
+            sleep 3
+          done
+          echo "A aplicação não respondeu com a versão esperada"
+          exit 1
+
+      - name: Publicar Release da versão
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --notes "Publicada em http://$HOST — imagem \`$IMAGE:$VERSION\`"
+          {
+            echo "## Versão publicada"
+            echo ""
+            echo "- Versão: \`$VERSION\`"
+            echo "- URL: http://$HOST"
+            echo "- Imagem: \`$IMAGE:$VERSION\`"
+          } >> "$GITHUB_STEP_SUMMARY"

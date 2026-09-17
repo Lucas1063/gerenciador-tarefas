@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tarefas do semestre</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Tarefas do semestre</h1>
+      <p class="resumo" id="resumo">Carregando…</p>
+    </header>
+
+    <form id="form-nova" novalidate>
+      <label for="titulo" class="visually-hidden">Nova tarefa</label>
+      <input id="titulo" name="title" type="text" minlength="3" maxlength="100"
+             placeholder="O que precisa ser entregue?" autocomplete="off" required>
+      <button type="submit">Adicionar</button>
+    </form>
+    <p class="erro" id="erro" role="alert" hidden></p>
+
+    <ul id="lista" aria-live="polite"></ul>
+    <p class="vazio" id="vazio" hidden>Nenhuma tarefa ainda. Escreva a primeira acima.</p>
+  </main>
+
+  <footer>
+    <span id="status">Verificando servidor…</span>
+    <span>Versão <code id="versao">—</code></span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

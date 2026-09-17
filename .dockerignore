@@ -1,0 +1,11 @@
+node_modules
+coverage
+.git
+.github
+.vscode
+specs
+infra
+tests
+*.md
+*.pem
+.env*
