@@ -19,7 +19,6 @@ function createApp({ store = createTaskStore(), version = process.env.APP_VERSIO
   app.use(
     helmet({
       contentSecurityPolicy: { directives: { 'upgrade-insecure-requests': null } },
-      strictTransportSecurity: false,
     }),
   );
 
